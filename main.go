@@ -239,8 +239,8 @@ func showBlob(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	home, _ := os.UserHomeDir()
-	root = filepath.Join(home, "pit-data")
-	data, err := os.ReadFile(filepath.Join(home, "pit-tokens.txt"))
+	root = filepath.Join(home, "pit", "pit-data")
+	data, err := os.ReadFile(filepath.Join(home, "pit", "pit-tokens.txt"))
 	if err != nil {
 		log.Fatalf("cannot read tokens: %v", err)
 	}
