@@ -12,6 +12,7 @@ It reads the same object store and token file that pit's HTTP push/pull server (
 - [Install](#install)
 - [Running locally](#running-locally)
 - [Deploying](#deploying)
+- [HTTPS with Caddy](#https-with-caddy)
 - [URL structure](#url-structure)
 - [Security notes](#security-notes)
 - [Limitations](#limitations)
@@ -126,6 +127,29 @@ sudo ufw allow 8081/tcp
 
 ---
 
+## HTTPS with Caddy
+
+Basic Auth sends the token in plain text over HTTP, so put Caddy in front of pit-web and serve over HTTPS.
+
+1. Point an A record for your domain at the server. If you use Cloudflare, set it to **DNS only** (grey cloud) so Caddy can complete the certificate challenge.
+2. Open ports **80** and **443** in both the cloud network rules and the OS firewall:
+   ```bash
+   sudo ufw allow 80/tcp
+   sudo ufw allow 443/tcp
+   ```
+   Caddy needs port 80 for the certificate challenge, so nothing else (e.g. nginx) can be listening on it.
+3. Install Caddy and write `/etc/caddy/Caddyfile`:
+   ```
+   pit.example.com {
+       reverse_proxy localhost:8081
+   }
+   ```
+4. Restart it: `sudo systemctl restart caddy`. Caddy fetches and renews the certificate automatically.
+
+Check it with `curl -I https://pit.example.com`. A `401 Unauthorized` means HTTPS works and pit-web is asking for a token. Once Caddy is in front, you can stop exposing port 8081 publicly.
+
+---
+
 ## URL structure
 
 | Path | Shows |
@@ -142,7 +166,7 @@ Every request requires HTTP Basic Auth with a valid token.
 
 ## Security notes
 
-- **Plain HTTP by default.** Basic Auth sends the token unencrypted. Put a reverse proxy (e.g. Caddy) in front and serve over HTTPS before sharing a link outside a trusted network.
+- **Plain HTTP by default.** Basic Auth sends the token unencrypted. Put Caddy in front and serve over HTTPS before sharing a link outside a trusted network (see [HTTPS with Caddy](#https-with-caddy)).
 - **Any valid token sees every repo.** There is no per-user or per-repo access control.
 - **Repo and branch names are validated** against `^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$`, which rejects path traversal (`..`) and hidden-file names, before they are used to build filesystem paths.
 - **File contents are HTML-escaped** before being written into the page, so a file containing `<script>` tags cannot execute in the viewer.
@@ -163,6 +187,6 @@ Every request requires HTTP Basic Auth with a valid token.
 
 - [ ] per-commit diffs
 - [ ] syntax highlighting for common languages
-- [ ] HTTPS out of the box (or documented Caddy config)
+- [x] HTTPS via a documented Caddy config
 - [ ] pagination for long commit histories
 - [ ] raw file download links
