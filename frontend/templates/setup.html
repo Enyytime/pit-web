@@ -1,5 +1,6 @@
 {{define "content"}}
-<h3>Create the admin account</h3>
+<div class=card>
+<h1>Create the admin account</h1>
 <div class=m>This only works once, while no accounts exist. The setup code was printed in the server log when pit-web started.</div>
 <form method=post action="/setup" class=stack>
 <input type=hidden name=csrf value="{{.CSRF}}">
@@ -9,4 +10,5 @@
 <label>Confirm password<input name=confirm type=password autocomplete=new-password required></label>
 <button>Create admin</button>
 </form>
+</div>
 {{end}}

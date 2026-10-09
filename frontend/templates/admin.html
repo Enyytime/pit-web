@@ -1,8 +1,8 @@
 {{define "content"}}
-<h3>Admin</h3>
+<h1>Admin</h1>
 
 <section>
-<h3>Invite someone</h3>
+<h2>Invite someone</h2>
 <div class=m>Sign-up is invite-only. An invite link works once and expires.</div>
 {{if .Data.NewLink}}<div class=secret>{{.Data.NewLink}}</div>{{end}}
 <form method=post action="/admin/invites" class=stack>
@@ -12,26 +12,26 @@
 <button>Create invite</button>
 </form>
 {{if .Data.Invites}}
-<table>
+<div class=tw><table>
 <tr><th>Note</th><th>Expires</th><th></th></tr>
 {{range .Data.Invites}}
 <tr><td>{{.Note}}</td><td>{{date .Expires}}</td>
 <td><form method=post action="/admin/invites/{{.ID}}/delete" style="margin:0"><input type=hidden name=csrf value="{{$.CSRF}}"><button class=danger>Delete</button></form></td></tr>
 {{end}}
-</table>
+</table></div>
 {{end}}
 </section>
 
 <section>
-<h3>Accounts</h3>
-<table>
+<h2>Accounts</h2>
+<div class=tw><table>
 <tr><th>Username</th><th>Role</th><th>Created</th></tr>
 {{range .Data.Users}}<tr><td>{{.Username}}</td><td>{{if .IsAdmin}}admin{{else}}user{{end}}</td><td>{{date .Created}}</td></tr>{{end}}
-</table>
+</table></div>
 </section>
 
 <section>
-<h3>Unclaimed repositories</h3>
+<h2>Unclaimed repositories</h2>
 <div class=m>These exist on disk but belong to no one, so only admins can see them. Assign each to an owner; it starts private.</div>
 {{range .Data.Unclaimed}}
 <form method=post action="/admin/adopt" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0">

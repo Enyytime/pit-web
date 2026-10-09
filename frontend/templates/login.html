@@ -1,5 +1,6 @@
 {{define "content"}}
-<h3>Log in</h3>
+<div class=card>
+<h1>Log in</h1>
 <form method=post action="/login" class=stack>
 <input type=hidden name=csrf value="{{.CSRF}}">
 <input type=hidden name=next value="{{.Next}}">
@@ -8,4 +9,5 @@
 <button>Log in</button>
 </form>
 <div class=m>Accounts are by invitation only.</div>
+</div>
 {{end}}

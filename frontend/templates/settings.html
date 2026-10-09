@@ -1,8 +1,8 @@
 {{define "content"}}
-<h3>Settings</h3>
+<h1>Settings</h1>
 
 <section>
-<h3>API tokens</h3>
+<h2>API tokens</h2>
 <div class=m>A token is a password for tools that cannot use the login page, namely <code>pit push</code> and <code>pit pull</code>. Each token is shown once and can be revoked here. Use <em>read and write</em> to push; <em>read only</em> is enough to pull and clone.</div>
 {{if .Data.NewToken}}
 <div class=secret>{{.Data.NewToken}}</div>
@@ -11,13 +11,13 @@
 <div class=m>pit stores this URL, token included, in <code>.pit/config</code>, so don't share that folder. You can also use the token with <code>curl -u {{.Data.Username}}:TOKEN {{.Data.BaseURL}}/r/REPONAME</code>.</div>
 {{end}}
 {{if .Data.Tokens}}
-<table>
+<div class=tw><table>
 <tr><th>Name</th><th>Access</th><th>Created</th><th>Last used</th><th></th></tr>
 {{range .Data.Tokens}}
 <tr><td>{{.Name}}</td><td>{{if .Write}}read/write{{else}}read only{{end}}</td><td>{{date .Created}}</td><td>{{date .LastUsed}}</td>
 <td><form method=post action="/settings/tokens/{{.ID}}/delete" style="margin:0"><input type=hidden name=csrf value="{{$.CSRF}}"><button class=danger>Revoke</button></form></td></tr>
 {{end}}
-</table>
+</table></div>
 {{else}}<div class=m>No tokens yet.</div>{{end}}
 <form method=post action="/settings/tokens" class=stack>
 <input type=hidden name=csrf value="{{.CSRF}}">
@@ -28,7 +28,7 @@
 </section>
 
 <section>
-<h3>Change password</h3>
+<h2>Change password</h2>
 <form method=post action="/settings/password" class=stack>
 <input type=hidden name=csrf value="{{.CSRF}}">
 <label>Current password<input name=current type=password autocomplete=current-password required></label>

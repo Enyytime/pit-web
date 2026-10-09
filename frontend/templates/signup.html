@@ -1,6 +1,7 @@
 {{define "content"}}
+<div class=card>
 {{if .Data.Invite}}
-<h3>Create your account</h3>
+<h1>Create your account</h1>
 <form method=post action="/signup" class=stack>
 <input type=hidden name=csrf value="{{.CSRF}}">
 <input type=hidden name=invite value="{{.Data.Invite}}">
@@ -10,4 +11,5 @@
 <button>Sign up</button>
 </form>
 {{end}}
+</div>
 {{end}}
