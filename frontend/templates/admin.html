@@ -1,0 +1,46 @@
+{{define "content"}}
+<h3>Admin</h3>
+
+<section>
+<h3>Invite someone</h3>
+<div class=m>Sign-up is invite-only. An invite link works once and expires.</div>
+{{if .Data.NewLink}}<div class=secret>{{.Data.NewLink}}</div>{{end}}
+<form method=post action="/admin/invites" class=stack>
+<input type=hidden name=csrf value="{{.CSRF}}">
+<label>Note (who is it for?)<input name=note maxlength=100></label>
+<label>Valid for (days, 1–30)<input name=days type=number min=1 max=30 value=7></label>
+<button>Create invite</button>
+</form>
+{{if .Data.Invites}}
+<table>
+<tr><th>Note</th><th>Expires</th><th></th></tr>
+{{range .Data.Invites}}
+<tr><td>{{.Note}}</td><td>{{date .Expires}}</td>
+<td><form method=post action="/admin/invites/{{.ID}}/delete" style="margin:0"><input type=hidden name=csrf value="{{$.CSRF}}"><button class=danger>Delete</button></form></td></tr>
+{{end}}
+</table>
+{{end}}
+</section>
+
+<section>
+<h3>Accounts</h3>
+<table>
+<tr><th>Username</th><th>Role</th><th>Created</th></tr>
+{{range .Data.Users}}<tr><td>{{.Username}}</td><td>{{if .IsAdmin}}admin{{else}}user{{end}}</td><td>{{date .Created}}</td></tr>{{end}}
+</table>
+</section>
+
+<section>
+<h3>Unclaimed repositories</h3>
+<div class=m>These exist on disk but belong to no one, so only admins can see them. Assign each to an owner; it starts private.</div>
+{{range .Data.Unclaimed}}
+<form method=post action="/admin/adopt" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0">
+<input type=hidden name=csrf value="{{$.CSRF}}">
+<input type=hidden name=repo value="{{.}}">
+<strong style="min-width:8rem">{{.}}</strong>
+<select name=owner>{{range $.Data.Users}}<option>{{.Username}}</option>{{end}}</select>
+<button>Assign</button>
+</form>
+{{else}}<div class=m>None.</div>{{end}}
+</section>
+{{end}}

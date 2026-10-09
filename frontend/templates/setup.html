@@ -1,0 +1,12 @@
+{{define "content"}}
+<h3>Create the admin account</h3>
+<div class=m>This only works once, while no accounts exist. The setup code was printed in the server log when pit-web started.</div>
+<form method=post action="/setup" class=stack>
+<input type=hidden name=csrf value="{{.CSRF}}">
+<label>Setup code<input name=setup_code autocomplete=off required></label>
+<label>Username<input name=username value="{{.Data}}" autocomplete=username required></label>
+<label>Password (10+ characters)<input name=password type=password autocomplete=new-password required></label>
+<label>Confirm password<input name=confirm type=password autocomplete=new-password required></label>
+<button>Create admin</button>
+</form>
+{{end}}

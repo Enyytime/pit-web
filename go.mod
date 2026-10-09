@@ -1,3 +1,3 @@
-module pitweb
+module github.com/Enyytime/pit-web
 
-go 1.22
+go 1.24

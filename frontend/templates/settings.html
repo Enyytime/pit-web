@@ -1,0 +1,40 @@
+{{define "content"}}
+<h3>Settings</h3>
+
+<section>
+<h3>API tokens</h3>
+<div class=m>A token is a password for tools that cannot use the login page, namely <code>pit push</code> and <code>pit pull</code>. Each token is shown once and can be revoked here. Use <em>read and write</em> to push; <em>read only</em> is enough to pull and clone.</div>
+{{if .Data.NewToken}}
+<div class=secret>{{.Data.NewToken}}</div>
+<div class=m>Point pit at a repository with:</div>
+<div class=secret>pit remote add origin {{.Data.Scheme}}://{{.Data.Username}}:{{.Data.NewToken}}@{{.Data.Host}}/REPONAME</div>
+<div class=m>pit stores this URL, token included, in <code>.pit/config</code>, so don't share that folder. You can also use the token with <code>curl -u {{.Data.Username}}:TOKEN {{.Data.BaseURL}}/r/REPONAME</code>.</div>
+{{end}}
+{{if .Data.Tokens}}
+<table>
+<tr><th>Name</th><th>Access</th><th>Created</th><th>Last used</th><th></th></tr>
+{{range .Data.Tokens}}
+<tr><td>{{.Name}}</td><td>{{if .Write}}read/write{{else}}read only{{end}}</td><td>{{date .Created}}</td><td>{{date .LastUsed}}</td>
+<td><form method=post action="/settings/tokens/{{.ID}}/delete" style="margin:0"><input type=hidden name=csrf value="{{$.CSRF}}"><button class=danger>Revoke</button></form></td></tr>
+{{end}}
+</table>
+{{else}}<div class=m>No tokens yet.</div>{{end}}
+<form method=post action="/settings/tokens" class=stack>
+<input type=hidden name=csrf value="{{.CSRF}}">
+<label>Name<input name=name placeholder="laptop" maxlength=64 required></label>
+<label>Access<select name=scope><option value=read>Read only</option><option value=write>Read and write</option></select></label>
+<button>Create token</button>
+</form>
+</section>
+
+<section>
+<h3>Change password</h3>
+<form method=post action="/settings/password" class=stack>
+<input type=hidden name=csrf value="{{.CSRF}}">
+<label>Current password<input name=current type=password autocomplete=current-password required></label>
+<label>New password (10+ characters)<input name=password type=password autocomplete=new-password required></label>
+<label>Confirm new password<input name=confirm type=password autocomplete=new-password required></label>
+<button>Change password</button>
+</form>
+</section>
+{{end}}

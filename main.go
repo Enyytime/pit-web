@@ -1,4 +1,4 @@
-// pit-web: a web viewer and account system for pit repositories.
+// pit-web: a web viewer, account system and push/pull server for pit repositories.
 //
 //	pit-web                         run the server (same as "serve")
 //	pit-web adopt USER REPO...      give on-disk repos to USER (private); "--all" adopts every unclaimed repo
@@ -18,23 +18,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"pitweb/internal/auth"
-	"pitweb/internal/objects"
-	"pitweb/internal/store"
-	"pitweb/internal/web"
+	"github.com/Enyytime/pit-web/config"
+	"github.com/Enyytime/pit-web/handlers"
+	"github.com/Enyytime/pit-web/models"
+	"github.com/Enyytime/pit-web/routes"
+	"github.com/Enyytime/pit-web/utils"
 )
 
-func envOr(k, def string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return def
-}
-
 func main() {
-	home, _ := os.UserHomeDir()
-	root := envOr("PIT_DATA", filepath.Join(home, "pit-data"))
-	db, err := store.Open(envOr("PIT_DB", filepath.Join(home, "pit-web.json")))
+	cfg := config.Load()
+	db, err := models.Open(cfg.DBPath)
 	if err != nil {
 		log.Fatalf("cannot open accounts file: %v", err)
 	}
@@ -45,9 +38,9 @@ func main() {
 	}
 	switch cmd {
 	case "serve":
-		serve(root, db)
+		serve(cfg, db)
 	case "adopt":
-		adopt(root, db, os.Args[2:])
+		adopt(cfg.Root, db, os.Args[2:])
 	case "reset-password":
 		resetPassword(db, os.Args[2:])
 	case "users":
@@ -64,23 +57,18 @@ func main() {
 	}
 }
 
-func serve(root string, db *store.Store) {
-	srv, err := web.New(web.Config{
-		Root:          root,
-		DB:            db,
-		SecureCookies: os.Getenv("PIT_INSECURE_COOKIES") != "1",
-	})
+func serve(cfg config.Config, db *models.Store) {
+	app, err := handlers.New(handlers.Config{Root: cfg.Root, DB: db, SecureCookies: cfg.SecureCookies})
 	if err != nil {
 		log.Fatal(err)
 	}
-	addr := envOr("PIT_ADDR", ":8081")
-	log.Printf("pit-web listening on %s, repos in %s", addr, root)
-	if code := srv.SetupCode(); code != "" {
+	log.Printf("pit-web listening on %s, repos in %s", cfg.Addr, cfg.Root)
+	if code := app.SetupCode(); code != "" {
 		log.Printf("FIRST RUN: no accounts exist yet. Open /setup and enter setup code: %s", code)
 	}
 	hs := &http.Server{
-		Addr:              addr,
-		Handler:           srv.Handler(),
+		Addr:              cfg.Addr,
+		Handler:           routes.New(app, db),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,
@@ -89,7 +77,7 @@ func serve(root string, db *store.Store) {
 	log.Fatal(hs.ListenAndServe())
 }
 
-func adopt(root string, db *store.Store, args []string) {
+func adopt(root string, db *models.Store, args []string) {
 	if len(args) < 2 {
 		log.Fatal("usage: pit-web adopt USER REPO... | pit-web adopt USER --all")
 	}
@@ -105,7 +93,7 @@ func adopt(root string, db *store.Store, args []string) {
 			log.Fatal(err)
 		}
 		for _, e := range ents {
-			if e.IsDir() && objects.ValidName(e.Name()) {
+			if e.IsDir() && utils.ValidName(e.Name()) {
 				if _, claimed := db.RepoByName(e.Name()); !claimed {
 					repos = append(repos, e.Name())
 				}
@@ -115,7 +103,7 @@ func adopt(root string, db *store.Store, args []string) {
 	for _, r := range repos {
 		st, err := os.Stat(filepath.Join(root, r))
 		switch {
-		case !objects.ValidName(r) || err != nil || !st.IsDir():
+		case !utils.ValidName(r) || err != nil || !st.IsDir():
 			fmt.Printf("skip %s: not a repository in %s\n", r, root)
 		default:
 			if err := db.AddRepo(r, owner.ID, false); err != nil {
@@ -127,7 +115,7 @@ func adopt(root string, db *store.Store, args []string) {
 	}
 }
 
-func resetPassword(db *store.Store, args []string) {
+func resetPassword(db *models.Store, args []string) {
 	if len(args) != 1 {
 		log.Fatal("usage: pit-web reset-password USER")
 	}
@@ -135,8 +123,8 @@ func resetPassword(db *store.Store, args []string) {
 	if !ok {
 		log.Fatalf("no such user %q", args[0])
 	}
-	pw := auth.RandomString(20)
-	hash, err := auth.HashPassword(pw)
+	pw := utils.RandomString(20)
+	hash, err := utils.HashPassword(pw)
 	if err != nil {
 		log.Fatal(err)
 	}

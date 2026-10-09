@@ -1,0 +1,13 @@
+{{define "content"}}
+{{if .Data.Invite}}
+<h3>Create your account</h3>
+<form method=post action="/signup" class=stack>
+<input type=hidden name=csrf value="{{.CSRF}}">
+<input type=hidden name=invite value="{{.Data.Invite}}">
+<label>Username<input name=username value="{{.Data.Username}}" autocomplete=username required></label>
+<label>Password (10+ characters)<input name=password type=password autocomplete=new-password required></label>
+<label>Confirm password<input name=confirm type=password autocomplete=new-password required></label>
+<button>Sign up</button>
+</form>
+{{end}}
+{{end}}
