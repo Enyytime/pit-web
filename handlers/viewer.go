@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/Enyytime/pit-web/middleware"
 	"html"
 	"net/http"
 	"net/url"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Enyytime/pit-web/middleware"
 
 	"github.com/Enyytime/pit-web/utils"
 )
@@ -61,7 +62,7 @@ func (s *App) Home(w http.ResponseWriter, r *http.Request) {
 	a := middleware.Who(r)
 	ents, _ := os.ReadDir(s.cfg.Root)
 	var sb strings.Builder
-	sb.WriteString("<h3>Repositories</h3>")
+	sb.WriteString("<h1>Repositories</h1><div class=list>")
 	n := 0
 	for _, e := range ents {
 		if !e.IsDir() || !utils.ValidName(e.Name()) || !s.canView(a.User, e.Name()) {
@@ -72,17 +73,18 @@ func (s *App) Home(w http.ResponseWriter, r *http.Request) {
 		owner := ""
 		if claimed {
 			if u, ok := s.cfg.DB.UserByID(rp.OwnerID); ok {
-				owner = " · " + esc(u.Username)
+				owner = esc(u.Username)
 			}
 		}
-		fmt.Fprintf(&sb, `<div class=c><a href="/r/%s">%s</a> %s<span class=m>%s</span></div>`,
+		fmt.Fprintf(&sb, `<div class=row><a class=nm href="/r/%s">%s</a>%s<span class=m>%s</span></div>`,
 			esc(e.Name()), esc(e.Name()), badge(rp.Public, claimed), owner)
 	}
+	sb.WriteString("</div>")
 	if n == 0 {
 		if a.User == nil {
-			sb.WriteString(`<div class=m>No public repositories. <a href="/login">Log in</a> to see yours.</div>`)
+			sb.WriteString(`<div class=empty>No public repositories yet. <a href="/login">Log in</a> to see yours.</div>`)
 		} else {
-			sb.WriteString(`<div class=m>No repositories yet.</div>`)
+			sb.WriteString(`<div class=empty>No repositories yet. Create a token in <a href="/settings">Settings</a>, then push with <code>pit push</code> to make one.</div>`)
 		}
 	}
 	s.viewer(w, r, "pit", sb.String())
@@ -101,18 +103,19 @@ func (s *App) ListBranches(w http.ResponseWriter, r *http.Request) {
 	a := middleware.Who(r)
 	rp, claimed := s.cfg.DB.RepoByName(repo)
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "<h3>%s %s</h3>", esc(repo), badge(rp.Public, claimed))
+	fmt.Fprintf(&sb, "<h1>%s %s</h1><h2>Branches</h2><div class=\"list files\">", esc(repo), badge(rp.Public, claimed))
 	for _, e := range ents {
 		if utils.ValidName(e.Name()) {
-			fmt.Fprintf(&sb, `<div class=c><a href="/r/%s/%s">%s</a></div>`, esc(repo), esc(e.Name()), esc(e.Name()))
+			fmt.Fprintf(&sb, `<div class=row><a class=nm href="/r/%s/%s">%s</a></div>`, esc(repo), esc(e.Name()), esc(e.Name()))
 		}
 	}
+	sb.WriteString("</div>")
 	if claimed && a.Sess != nil && s.canManage(a.User, repo) {
 		want, label := "1", "Make public"
 		if rp.Public {
 			want, label = "0", "Make private"
 		}
-		fmt.Fprintf(&sb, `<form method=post action="/r/%s/visibility" class=inline><input type=hidden name=csrf value="%s"><input type=hidden name=public value="%s"><button>%s</button></form>`,
+		fmt.Fprintf(&sb, `<form method=post action="/r/%s/visibility" class=actions><input type=hidden name=csrf value="%s"><input type=hidden name=public value="%s"><button class=ghost>%s</button></form>`,
 			esc(repo), esc(a.Sess.CSRF), want, label)
 	}
 	s.viewer(w, r, repo+" · pit", sb.String())
@@ -158,7 +161,7 @@ func (s *App) CommitLog(w http.ResponseWriter, r *http.Request) {
 
 	h := strings.TrimSpace(string(b))
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "<h3>%s / %s</h3>", esc(repo), esc(branch))
+	fmt.Fprintf(&sb, `<h1><a href="/r/%s">%s</a> <span class=sep>/</span> %s</h1><ol class=log>`, esc(repo), esc(repo), esc(branch))
 	shown, more := 0, false
 	for n := 0; utils.ValidHash(h) && n < maxWalk; n++ {
 		_, body, err := s.obj.Read(repo, h)
@@ -176,8 +179,12 @@ func (s *App) CommitLog(w http.ResponseWriter, r *http.Request) {
 				first = "(no message)"
 			}
 			name, when := utils.AuthorInfo(f["author"])
-			fmt.Fprintf(&sb, `<div class=c><a href="/r/%s/commit/%s">%s</a><div class=m>%s · %s · %s · <a href="/r/%s/tree/%s">files</a></div></div>`,
-				esc(repo), h, esc(first), h[:8], esc(name), when, esc(repo), esc(f["tree"]))
+			cls := ""
+			if pg == 1 && shown == 0 {
+				cls = ` class=head`
+			}
+			fmt.Fprintf(&sb, `<li%s><div class=ttl><a href="/r/%s/commit/%s">%s</a></div><div class=meta><span class=hash>%s</span><span>%s</span><span>%s</span><a href="/r/%s/tree/%s">files</a></div></li>`,
+				cls, esc(repo), h, esc(first), h[:8], esc(name), when, esc(repo), esc(f["tree"]))
 			shown++
 		}
 		h = f["parent"]
@@ -186,7 +193,7 @@ func (s *App) CommitLog(w http.ResponseWriter, r *http.Request) {
 		notFound(w)
 		return
 	}
-	sb.WriteString("<div class=nav><span>")
+	sb.WriteString("</ol><div class=nav><span>")
 	if pg > 1 {
 		fmt.Fprintf(&sb, `<a href="/r/%s/%s?page=%d">← newer</a>`, esc(repo), esc(branch), pg-1)
 	}
@@ -251,13 +258,16 @@ func (s *App) ShowCommit(w http.ResponseWriter, r *http.Request) {
 
 	var sb strings.Builder
 	first, _, _ := strings.Cut(msg, "\n")
-	fmt.Fprintf(&sb, `<h3>%s</h3><div class=msg>%s</div>`, esc(first), esc(msg))
-	fmt.Fprintf(&sb, `<div class=m>%s · %s · commit %s</div>`, esc(name), when, h)
-	sb.WriteString("<div class=bar>")
-	if utils.ValidHash(parent) {
-		fmt.Fprintf(&sb, `<a href="/r/%s/commit/%s">← parent %s</a>`, esc(repo), parent, parent[:8])
+	fmt.Fprintf(&sb, `<h1>%s</h1>`, esc(first))
+	if rest := strings.TrimSpace(strings.TrimPrefix(msg, first)); rest != "" {
+		fmt.Fprintf(&sb, `<div class=msg>%s</div>`, esc(rest))
 	}
-	fmt.Fprintf(&sb, `<a href="/r/%s/tree/%s">browse files</a></div>`, esc(repo), esc(f["tree"]))
+	fmt.Fprintf(&sb, `<div class=meta><span>%s</span><span>%s</span><span class="hash full">%s</span></div>`, esc(name), when, h)
+	sb.WriteString("<div class=actions>")
+	if utils.ValidHash(parent) {
+		fmt.Fprintf(&sb, `<a class=btn href="/r/%s/commit/%s">← parent %s</a>`, esc(repo), parent, parent[:8])
+	}
+	fmt.Fprintf(&sb, `<a class=btn href="/r/%s/tree/%s">browse files</a></div>`, esc(repo), esc(f["tree"]))
 
 	changed, shown := 0, 0
 	var files strings.Builder
@@ -271,26 +281,28 @@ func (s *App) ShowCommit(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		shown++
-		status := "M"
+		status, scls := "M", "sm"
 		switch {
 		case oh == "":
-			status = "A"
+			status, scls = "A", "sa"
 		case nh == "":
-			status = "D"
+			status, scls = "D", "sd"
 		}
-		fmt.Fprintf(&files, `<h4><span class=st>%s</span>%s</h4>`, status, esc(p))
-		files.WriteString(s.diffBlobs(repo, oh, nh))
+		body, stat := s.diffBlobs(repo, oh, nh)
+		fmt.Fprintf(&files, `<div class=file><div class=fh><span class="st %s">%s</span><span class=fp>%s</span><span class=fs>%s</span></div>%s</div>`,
+			scls, status, esc(p), stat, body)
 	}
-	fmt.Fprintf(&sb, `<div class=m>%d file(s) changed</div>`, changed)
+	fmt.Fprintf(&sb, `<div class=sum>%d file(s) changed</div>`, changed)
 	sb.WriteString(files.String())
 	if changed > shown {
-		fmt.Fprintf(&sb, `<div class=m>%d more changed files not shown</div>`, changed-shown)
+		fmt.Fprintf(&sb, `<div class=empty>%d more changed files not shown.</div>`, changed-shown)
 	}
 	s.viewer(w, r, first+" · pit", sb.String())
 }
 
-// diffBlobs renders the diff between two blob hashes ("" means absent).
-func (s *App) diffBlobs(repo, oh, nh string) string {
+// diffBlobs renders the diff between two blob hashes ("" means absent). It
+// returns the diff body and a short "+n -n" summary for the file header.
+func (s *App) diffBlobs(repo, oh, nh string) (body, stat string) {
 	read := func(h string) ([]byte, string) {
 		if h == "" {
 			return nil, ""
@@ -317,11 +329,11 @@ func (s *App) diffBlobs(repo, oh, nh string) string {
 				why = "file too large to diff"
 			} else {
 				out, adds, dels := renderDiff(ls)
-				return fmt.Sprintf(`<div class=m><span class=ad>+%d</span> <span class=de>-%d</span></div>%s`, adds, dels, out)
+				return out, fmt.Sprintf(`<span class=ad>+%d</span> <span class=de>-%d</span>`, adds, dels)
 			}
 		}
 	}
-	return `<div class=m>` + esc(why) + `</div>`
+	return `<div class=note>` + esc(why) + `</div>`, ""
 }
 
 func num(n int) string {
@@ -358,7 +370,7 @@ func renderDiff(ls []utils.DLine) (out string, adds, dels int) {
 			continue
 		}
 		if gap && i > 0 {
-			sb.WriteString(`<div class=d><span class=n></span><span class=n></span><span class=h>…</span></div>`)
+			sb.WriteString(`<div class="d gap"><span class=n></span><span class=n></span><span class=g></span><span class=h>…</span></div>`)
 		}
 		gap = false
 		cls, sign := "", " "
@@ -368,7 +380,7 @@ func renderDiff(ls []utils.DLine) (out string, adds, dels int) {
 		case '-':
 			cls, sign = " r", "-"
 		}
-		fmt.Fprintf(&sb, `<div class="d%s"><span class=n>%s</span><span class=n>%s</span>%s%s</div>`,
+		fmt.Fprintf(&sb, `<div class="d%s"><span class=n>%s</span><span class=n>%s</span><span class=g>%s</span>%s</div>`,
 			cls, num(l.Old), num(l.New), sign, esc(l.Text))
 	}
 	sb.WriteString("</div>")
@@ -396,7 +408,7 @@ func (s *App) ShowTree(w http.ResponseWriter, r *http.Request) {
 	if dir != "" {
 		crumb += " / " + esc(strings.ReplaceAll(dir, "/", " / "))
 	}
-	fmt.Fprintf(&sb, "<h3>%s</h3>", crumb)
+	fmt.Fprintf(&sb, `<h1>%s</h1><div class="list files">`, crumb)
 
 	ents := utils.ParseTree(body)
 	sort.SliceStable(ents, func(i, j int) bool { // directories first
@@ -407,13 +419,14 @@ func (s *App) ShowTree(w http.ResponseWriter, r *http.Request) {
 		if dir != "" {
 			full = dir + "/" + e.Name
 		}
-		kind, slash := "blob", ""
+		kind, slash, rcls := "blob", "", "row"
 		if e.Mode == "40000" {
-			kind, slash = "tree", "/"
+			kind, slash, rcls = "tree", "/", "row dir"
 		}
-		fmt.Fprintf(&sb, `<div class=c><a href="/r/%s/%s/%s%s">%s%s</a></div>`,
-			esc(repo), kind, e.Hash, esc(pq(full)), esc(e.Name), slash)
+		fmt.Fprintf(&sb, `<div class="%s"><a class=nm href="/r/%s/%s/%s%s">%s%s</a></div>`,
+			rcls, esc(repo), kind, e.Hash, esc(pq(full)), esc(e.Name), slash)
 	}
+	sb.WriteString("</div>")
 	s.viewer(w, r, repo+" · pit", sb.String())
 }
 
@@ -438,11 +451,11 @@ func (s *App) ShowBlob(w http.ResponseWriter, r *http.Request) {
 		title = h[:8]
 	}
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "<h3>%s</h3>", esc(title))
-	fmt.Fprintf(&sb, `<div class=bar><span class=m>%d bytes</span><a href="/r/%s/raw/%s%s">raw</a></div>`,
+	fmt.Fprintf(&sb, `<h1 class=path>%s</h1>`, esc(title))
+	fmt.Fprintf(&sb, `<div class=actions><span class=m>%d bytes</span><a class=btn href="/r/%s/raw/%s%s">raw</a></div>`,
 		len(body), esc(repo), h, esc(pq(p)))
 	if utils.IsBinary(body) {
-		sb.WriteString(`<div class=m>binary file — use the raw link to download it</div>`)
+		sb.WriteString(`<div class=empty>binary file — use the raw link to download it</div>`)
 	} else {
 		shown, note := body, ""
 		if len(shown) > maxViewBytes {
@@ -450,7 +463,7 @@ func (s *App) ShowBlob(w http.ResponseWriter, r *http.Request) {
 			for !utf8.Valid(shown) && len(shown) > 0 {
 				shown = shown[:len(shown)-1]
 			}
-			note = `<div class=m>file truncated — use the raw link for the full content</div>`
+			note = `<div class=empty>file truncated — use the raw link for the full content</div>`
 		}
 		sb.WriteString("<pre class=code>")
 		for _, l := range utils.SplitLines(string(shown)) {
